@@ -5,7 +5,7 @@ The Pages project has no bindings. Dashboard → Workers & Pages → mister-admi
 Bindings → add D1 `DB` and R2 `MEDIA`. Or redeploy from the CLI after fixing `wrangler.toml`.
 
 **Internal server error on first visit / "no such table"**
-Migrations were not applied. Run `npm run db:migrate:remote` (or `:local` for dev).
+Migrations were not applied. Tables are created automatically on the first API request. If that failed, the error is shown in the dashboard logs; check the D1 binding is named `DB`.
 
 **The Welcome screen does not appear, login fails, and I have no account**
 Someone already created the first admin. Ask them, or reset: delete and recreate the D1 database
@@ -39,8 +39,8 @@ served the publish request; other edges expire within 60 s.
 The error message names the exact collection/field. Common: a field named `id` or `children`
 (reserved), uppercase letters, a `select` without `options`.
 
-**Local dev: `npm run dev` says it cannot find the D1 database**
-Run `npm run db:migrate:local` first; it creates the local database in `.wrangler/state`.
+**Local dev: tables missing**
+Delete `.wrangler/state` and start `npm run dev` again; tables are recreated on the first request.
 
 **I deleted a photo that was in use**
 Those fields now show no image. Pick a new photo in the editor and save.

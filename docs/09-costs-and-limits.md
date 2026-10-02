@@ -5,8 +5,8 @@ published free limits at the time of writing (2026); check cloudflare.com/plans 
 
 | Product | Used for | Free tier | What that means for you |
 |---|---|---|---|
-| Pages | hosting the admin and your sites | unlimited sites, unlimited bandwidth, 500 builds/month | never a problem |
-| Workers / Pages Functions | the API | 100 000 requests per day | ~100 000 page views of all your sites per day |
+| Pages | hosting your websites | unlimited sites, unlimited bandwidth, 500 builds/month | never a problem |
+| Workers | Mister Admin itself (UI + API) | 100 000 requests per day | ~100 000 page views of all your sites per day |
 | D1 | the database | 5 GB storage, 5 M reads/day, 100 000 writes/day | thousands of sites' worth of content |
 | R2 | photo files | 10 GB storage, 10 M reads/month, zero egress fees | ~20 000 photos, unlimited views |
 

@@ -1,16 +1,34 @@
 # Mister Admin
 
 **A simple, reliable admin panel for static websites hosted on Cloudflare Pages.**
-One Mister Admin can manage many websites, with separate logins for each person.
-No AI, no build step, no framework. Runs entirely on Cloudflare's free tier.
+Everyone installs their own copy in their own Cloudflare account, in one click or by
+double-clicking an installer. No AI, no build step, no framework, no monthly cost.
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/insidermusiclive/mister-admin)
+
+## Install (pick one)
+
+| Way | For whom | What happens |
+|---|---|---|
+| **Button above** | anyone with a Cloudflare and GitHub account | Cloudflare copies the repo, creates the database and photo storage, deploys. About 3 minutes. |
+| **Zip + installer** | anyone with a Cloudflare account, no GitHub needed | Download the zip from [Releases](https://github.com/insidermusiclive/mister-admin/releases), unzip, double-click `install/install-mac.command` or `install/install-windows.bat`. Needs [Node.js](https://nodejs.org). |
+| **Command line** | developers | `npm install && npx wrangler login && node install/install.mjs` |
+
+Then open your new address, create your administrator account on the Welcome screen, and start.
+Full details: [docs/03-setup-cloudflare.md](docs/03-setup-cloudflare.md).
 
 ```
-  ┌──────────────┐      edits       ┌──────────────────┐      reads JSON      ┌──────────────┐
-  │  Your wife   │ ───────────────▶ │                  │ ◀─────────────────── │  Website A   │
-  │  Your son    │  (browser login) │   Mister Admin   │                      │  Website B   │
-  │  You         │                  │  Pages+D1+R2     │ ───────────────────▶ │  Website C   │
-  └──────────────┘                  └──────────────────┘   serves photos      └──────────────┘
+  Your Cloudflare account              Your wife's Cloudflare account
+  ┌──────────────────────┐             ┌──────────────────────┐
+  │ Mister Admin (yours) │             │ Mister Admin (hers)  │
+  │  Worker + D1 + R2    │             │  Worker + D1 + R2    │
+  └─────────┬────────────┘             └─────────┬────────────┘
+            │ reads JSON + photos                │
+  ┌─────────┴────────────┐             ┌─────────┴────────────┐
+  │ your website(s)      │             │ her website(s)       │
+  └──────────────────────┘             └──────────────────────┘
 ```
+Each installation is completely independent: its own login, data and photos.
 
 ## What it does
 
@@ -18,8 +36,8 @@ No AI, no build step, no framework. Runs entirely on Cloudflare's free tier.
 - **Photos just work.** Every photo is converted in the browser *before* upload:
   iPhone HEIC → JPEG, rotation fixed, resized to 480/1200/2000 px, encoded as WebP.
   A 6 MB phone photo becomes ~300 KB of web-ready files. Originals never hit the server.
-- **Multi-user, multi-site.** Administrators create accounts. Each site has owners,
-  editors and viewers. Your family can log in and change their own sites.
+- **Your own instance.** Installed in your own Cloudflare account; nobody else has access.
+  Inside it you can still manage several websites and invite extra people with roles if you want.
 - **Draft → Publish.** Edits are saved as drafts. The website only changes when you press
   **Publish**, so half-finished work never goes live.
 - **Schema-driven.** Each website declares its own structure (sections, fields, menu)
@@ -28,8 +46,7 @@ No AI, no build step, no framework. Runs entirely on Cloudflare's free tier.
 - **Safe by design.** Server-side validation of every field, images can only reference
   photos that exist, deleting a photo in use is refused, every action is logged,
   one-click JSON backup and restore.
-- **Free.** Cloudflare Pages + Functions + D1 + R2, all inside the free tier for
-  normal small-business use. See [docs/09-costs-and-limits.md](docs/09-costs-and-limits.md).
+- **Free.** Cloudflare Workers + D1 + R2, all inside the free tier for normal small-business use. See [docs/09-costs-and-limits.md](docs/09-costs-and-limits.md).
 
 ## How a website uses it
 
@@ -62,29 +79,30 @@ and use a Cloudflare deploy hook instead. Both are explained in
 | [09-costs-and-limits.md](docs/09-costs-and-limits.md) | Free-tier numbers and hard limits |
 | [10-troubleshooting.md](docs/10-troubleshooting.md) | When something does not work |
 
-## Quick start (local, no Cloudflare account needed)
+## Run locally (developers, no Cloudflare account needed)
 
 ```bash
 npm install
-npm run db:migrate:local
 npm run dev
 ```
 
-Open http://localhost:8788, create the first administrator, create a site, and start editing.
+Open http://localhost:8788. The database tables are created automatically on first use.
 Open `examples/demo-site/index.html` in a browser to see a website pulling the content.
 
 ## Project layout
 
 ```
+src/worker.js      Cloudflare Worker entry: static assets, API router, first-run database setup
 public/            the admin web app (static files, no build step)
   app.js           router + screens
   lib/             api, forms, editors, media library, image pipeline
   client/          copy of site-client/mister-admin.js served to websites
-functions/         Cloudflare Pages Functions (the API)
+functions/         the API route handlers
   _lib/            auth, schema validation, media helpers
-  api/             routes (file-based routing)
+  api/             one file per route
   media/           serves photos from R2
-migrations/        D1 database schema
+install/           double-click installers (Mac, Windows) and the Node installer script
+migrations/        D1 database schema (applied automatically by the Worker)
 site-client/       the script websites include
 examples/          an example schema and a demo website
 docs/              documentation

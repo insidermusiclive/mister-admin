@@ -1,24 +1,36 @@
-# Mister Admin - Cloudflare Pages configuration
-# See docs/03-setup-cloudflare.md for the step-by-step setup.
+# Mister Admin - Cloudflare Worker configuration.
+# "Deploy to Cloudflare" reads this file and creates the database and storage bucket for you.
+# See docs/03-setup-cloudflare.md.
 
 name = "mister-admin"
-pages_build_output_dir = "public"
+main = "src/worker.js"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "mister-admin"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "mister-admin"
 
 [[r2_buckets]]
 binding = "MEDIA"
 bucket_name = "mister-admin-media"
 
+[[rules]]
+type = "Text"
+globs = ["**/*.sql"]
+
 [vars]
-# Optional. If you connect a public custom domain to the R2 bucket, put it here
-# (e.g. "https://media.example.com") and images will be served from there.
-# Leave empty to serve images through the admin app at /media/...
+# Optional. If you connect a custom domain to the R2 bucket, put it here
+# (e.g. "https://media.example.com"). Leave empty to serve photos through the app at /media/...
 MEDIA_BASE_URL = ""
 # Session length in days
 SESSION_DAYS = "30"
+
+[observability]
+enabled = true

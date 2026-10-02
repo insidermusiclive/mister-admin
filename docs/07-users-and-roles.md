@@ -1,6 +1,11 @@
 # 7. Users and roles
 
-Mister Admin is built so that non-technical people can safely manage their own website.
+The normal setup is **one Mister Admin per person, in that person's own Cloudflare account**.
+You are then the only user and the administrator of your own installation. Nothing in this
+document is required for that; you can stop reading here.
+
+The roles below exist for the case where one installation is shared, for example a small
+business where two colleagues edit the same site, or an agency managing several clients.
 
 ## Accounts
 
@@ -29,19 +34,17 @@ Open a site → **People** to give access.
 
 Administrators have owner rights on every site without needing a membership.
 
-## Typical family setup
+## Family: separate installations (recommended)
+
+Each person installs their own Mister Admin ([03-setup-cloudflare.md](03-setup-cloudflare.md)).
+Nothing is shared, nobody depends on anybody, and each person's data stays in their own account.
+
+## Family: one shared installation (alternative)
 
 1. You are the administrator.
-2. Create a user for your wife and one for your son.
-3. On your wife's site → People → add her email as **owner** (so she can also change the schema
-   and invite someone later) or **editor** (content only).
-4. Same for your son on his site.
-5. Each of them logs in at the admin URL and sees only their own site(s).
-
-## Separate instances instead
-
-If someone wants to be completely independent, they can deploy their own Mister Admin in their
-own Cloudflare account ([03-setup-cloudflare.md](03-setup-cloudflare.md)). Nothing is shared.
+2. Create a user for each person (Users → New user).
+3. On their site → People → add their email as **owner** or **editor**.
+4. They log in at your admin URL and see only their own site(s).
 
 ## Sessions
 

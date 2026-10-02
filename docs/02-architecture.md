@@ -6,9 +6,10 @@ Everything runs on Cloudflare. There is no server to maintain.
 Browser (admin user)
    │  HTTPS, session cookie
    ▼
-Cloudflare Pages  ── static files: public/ (the admin UI)
+Cloudflare Worker (src/worker.js)
    │
-   ├─ Pages Functions (functions/)  ── the API, runs on Workers
+   ├─ Static assets: public/ (the admin UI)
+   ├─ API routes (functions/api/…)
    │       │
    │       ├─ D1 (SQLite)  ── users, sessions, sites, schema, content, published, media index, audit log
    │       └─ R2 (object storage) ── the photo files
@@ -21,11 +22,15 @@ Website (static, anywhere)
 
 ## Request flow
 
+0. `src/worker.js` receives every request. Anything that is not `/api/*` or `/media/*` is served
+   from the static assets (the admin UI). On the first API request it checks whether the `users`
+   table exists and, if not, runs `migrations/0001_init.sql`. That is why installation has no
+   "create tables" step.
 1. `functions/_middleware.js` runs on every API request. It loads the session user from the
    cookie, enforces a CSRF header on all non-GET requests, adds CORS headers only for the
    public endpoints, and turns thrown `HttpError`s into JSON responses.
-2. Route files under `functions/api/` handle one URL each (Pages file-based routing,
-   `[param]` folders are URL parameters).
+2. Route files under `functions/api/` handle one URL each. The route table lives in
+   `src/worker.js` (`:param` segments are URL parameters).
 3. `functions/_lib/auth.js` provides `requireUser`, `requireAdmin` and `requireSiteRole`.
    Every site route calls `requireSiteRole(env, data, siteId, 'editor')` (or `owner`/`viewer`)
    which loads the site and checks membership in one go.

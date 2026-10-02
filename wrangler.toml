@@ -1,0 +1,24 @@
+# Mister Admin - Cloudflare Pages configuration
+# See docs/03-setup-cloudflare.md for the step-by-step setup.
+
+name = "mister-admin"
+pages_build_output_dir = "public"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mister-admin"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "mister-admin-media"
+
+[vars]
+# Optional. If you connect a public custom domain to the R2 bucket, put it here
+# (e.g. "https://media.example.com") and images will be served from there.
+# Leave empty to serve images through the admin app at /media/...
+MEDIA_BASE_URL = ""
+# Session length in days
+SESSION_DAYS = "30"

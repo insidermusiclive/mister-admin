@@ -1,0 +1,17 @@
+{
+  "name": "mister-admin",
+  "version": "1.0.0",
+  "description": "Mister Admin - a multi-site content admin for static websites hosted on Cloudflare Pages",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev --port 8788",
+    "db:migrate:local": "wrangler d1 migrations apply mister-admin --local",
+    "db:migrate:remote": "wrangler d1 migrations apply mister-admin --remote",
+    "deploy": "wrangler pages deploy public",
+    "test": "node test/run.js"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

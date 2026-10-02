@@ -31,6 +31,16 @@ Add the client script at the end of your HTML and mark up elements with `data-ma
 | `data-ma-empty="No events yet"` | on a list: text shown when empty |
 | `data-ma-menu="navigation"` | renders a nested `<ul>` menu from a tree collection |
 | `data-ma-if="hero.button_label"` | removes the element when the value is empty |
+| `data-ma-unless="events.0"` | removes the element when the value is NOT empty (for "nothing published yet" placeholders) |
+
+Text that is already in the HTML stays as the default when the value in Mister Admin is empty.
+
+## Shipping the sections with the website
+
+Put a `mister-admin.json` file in the website (a schema, optionally with starting `content`, in the
+export format). When someone adds the website in Mister Admin they choose **From a file** and pick it:
+sections and starting texts are set up in one go. Keep that file next to the HTML so the website and
+its sections stay in sync.
 
 A full working page is in [`examples/demo-site/index.html`](../examples/demo-site/index.html).
 

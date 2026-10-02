@@ -13,6 +13,8 @@
  *   <ul data-ma-list="news"><li><h3 data-ma="title"></h3></li></ul>   repeats the first child per item
  *   <nav data-ma-menu="navigation"></nav>              renders a nested <ul> menu
  *   <section data-ma-if="news.0"> ... </section>       removed when the value is empty
+ *   <section data-ma-unless="news.0"> ... </section>   removed when the value is NOT empty (placeholders)
+ * Text already in the HTML stays as the default when the admin value is empty.
  *
  * Or use it from JavaScript:
  *   const content = await MisterAdmin.load();  // { settings: {...}, news: [...] }
@@ -115,12 +117,10 @@
       el.setAttribute('data-ma-done', (done.concat(kind)).join(' ').trim());
     });
   }
+  function isEmpty(v) { return v == null || v === '' || v === false || (Array.isArray(v) && !v.length); }
   function bind(root, data) {
-    each(root, '[data-ma-if]', 'if', (el) => {
-      const v = get(data, el.dataset.maIf);
-      const empty = v == null || v === '' || v === false || (Array.isArray(v) && !v.length);
-      if (empty) el.remove();
-    });
+    each(root, '[data-ma-if]', 'if', (el) => { if (isEmpty(get(data, el.dataset.maIf))) el.remove(); });
+    each(root, '[data-ma-unless]', 'unless', (el) => { if (!isEmpty(get(data, el.dataset.maUnless))) el.remove(); });
     each(root, '[data-ma-list]', 'list', (el) => {
       const items = get(data, el.dataset.maList) || [];
       const tpl = el.firstElementChild;
@@ -133,12 +133,13 @@
     each(root, '[data-ma-menu]', 'menu', (el) => { el.innerHTML = ''; el.appendChild(renderMenu(get(data, el.dataset.maMenu) || [], 1)); });
     each(root, '[data-ma]', 'text', (el) => {
       const v = get(data, el.dataset.ma);
-      const text = v == null ? '' : (typeof v === 'object' ? (v.alt || '') : String(v));
+      if (isEmpty(v)) return; // keep whatever the HTML already says
+      const text = typeof v === 'object' ? (v.alt || '') : String(v);
       const attr = el.dataset.maAttr;
       if (attr) el.setAttribute(attr, (el.dataset.maPrefix || '') + text);
       else el.textContent = text;
     });
-    each(root, '[data-ma-html]', 'html', (el) => { el.innerHTML = markdown(get(data, el.dataset.maHtml)); });
+    each(root, '[data-ma-html]', 'html', (el) => { const v = get(data, el.dataset.maHtml); if (!isEmpty(v)) el.innerHTML = markdown(v); });
     each(root, '[data-ma-img]', 'img', (el) => {
       const v = get(data, el.dataset.maImg);
       if (el.tagName === 'IMG') setImage(el, v);

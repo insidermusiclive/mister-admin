@@ -188,11 +188,29 @@ async function createSiteDialog() {
   name.addEventListener('input', () => { if (!slug.dataset.touched) slug.value = name.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); });
   slug.addEventListener('input', () => { slug.dataset.touched = '1'; });
   let template = 'business';
+  let fileSchema = null; // schema loaded from a file the website provides
   let step = 1;
+  const fileInput = h('input', { type: 'file', accept: 'application/json,.json', class: 'hidden', onChange: async () => {
+    const f = fileInput.files[0]; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      const schema = data.schema && data.schema.collections ? data.schema : data;
+      if (!schema.collections) throw new Error('This file does not describe website sections');
+      fileSchema = { schema, content: data.content || null, fileName: f.name };
+      template = 'file';
+      if (data.site?.name && !name.value) name.value = data.site.name;
+      if (data.site?.url && !url.value) url.value = data.site.url;
+      drawChoices();
+    } catch (e) { toast(e.message, 'error'); } finally { fileInput.value = ''; }
+  } });
   const body = h('div');
   const steps = h('div', { class: 'steps' }, h('span', { class: 'done' }), h('span'));
   const choices = h('div', { class: 'choices' });
-  const drawChoices = () => { clear(choices); for (const t of TEMPLATES) choices.append(h('button', { type: 'button', class: `choice${template === t.id ? ' selected' : ''}`, onClick: () => { template = t.id; drawChoices(); } }, h('div', { class: 'ico' }, t.icon), h('strong', {}, t.name), h('span', {}, t.blurb))); };
+  const drawChoices = () => {
+    clear(choices);
+    for (const t of TEMPLATES) choices.append(h('button', { type: 'button', class: `choice${template === t.id ? ' selected' : ''}`, onClick: () => { template = t.id; drawChoices(); } }, h('div', { class: 'ico' }, t.icon), h('strong', {}, t.name), h('span', {}, t.blurb)));
+    choices.append(h('button', { type: 'button', class: `choice${template === 'file' ? ' selected' : ''}`, onClick: () => fileInput.click() }, h('div', { class: 'ico' }, '📎'), h('strong', {}, fileSchema ? 'From file ✓' : 'From a file'), h('span', {}, fileSchema ? fileSchema.fileName : 'A website made for Mister Admin comes with a mister-admin.json file. Pick it.')), fileInput);
+  };
   const draw = () => {
     clear(body);
     steps.children[1].classList.toggle('done', step === 2);
@@ -219,8 +237,15 @@ async function createSiteDialog() {
         const btn = document.querySelector('.modal-actions .btn-primary'); if (btn) btn.textContent = 'Create website';
         return false;
       }
-      try { const res = await api('POST', '/api/sites', { name: name.value, slug: slug.value, url: url.value, schema: templateById(template).schema }); toast('Website added. Fill in the sections on the left.', 'success', 5000); go(`/site/${res.site.id}`); return true; }
-      catch (e) { toast(e.message, 'error'); return false; }
+      try {
+        const schema = template === 'file' && fileSchema ? fileSchema.schema : templateById(template).schema;
+        const res = await api('POST', '/api/sites', { name: name.value, slug: slug.value, url: url.value, schema });
+        if (template === 'file' && fileSchema?.content) {
+          try { await api('POST', `/api/sites/${res.site.id}/import`, { format: 'mister-admin-export/1', schema, content: fileSchema.content }); }
+          catch (e) { toast(`Website added, but its starting texts could not be loaded: ${e.message}`, 'error', 6000); }
+        }
+        toast('Website added. Fill in the sections on the left.', 'success', 5000); go(`/site/${res.site.id}`); return true;
+      } catch (e) { toast(e.message, 'error'); return false; }
     } }] });
   return r;
 }

@@ -119,8 +119,6 @@
   }
   function isEmpty(v) { return v == null || v === '' || v === false || (Array.isArray(v) && !v.length); }
   function bind(root, data) {
-    each(root, '[data-ma-if]', 'if', (el) => { if (isEmpty(get(data, el.dataset.maIf))) el.remove(); });
-    each(root, '[data-ma-unless]', 'unless', (el) => { if (!isEmpty(get(data, el.dataset.maUnless))) el.remove(); });
     each(root, '[data-ma-list]', 'list', (el) => {
       const items = get(data, el.dataset.maList) || [];
       const tpl = el.firstElementChild;
@@ -130,6 +128,10 @@
       filtered.forEach((it) => { const node = tpl.cloneNode(true); bindNode(node, it); el.appendChild(node); });
       if (!filtered.length && el.dataset.maEmpty) el.textContent = el.dataset.maEmpty;
     });
+    // if / unless run AFTER the lists: a list template must be cloned intact, and each clone
+    // is bound with its own item, so these passes only ever see finished clones.
+    each(root, '[data-ma-if]', 'if', (el) => { if (isEmpty(get(data, el.dataset.maIf))) el.remove(); });
+    each(root, '[data-ma-unless]', 'unless', (el) => { if (!isEmpty(get(data, el.dataset.maUnless))) el.remove(); });
     each(root, '[data-ma-menu]', 'menu', (el) => { el.innerHTML = ''; el.appendChild(renderMenu(get(data, el.dataset.maMenu) || [], 1)); });
     each(root, '[data-ma]', 'text', (el) => {
       const v = get(data, el.dataset.ma);

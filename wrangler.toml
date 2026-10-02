@@ -24,6 +24,8 @@ bucket_name = "mister-admin-media"
 [[rules]]
 type = "Text"
 globs = ["**/*.sql"]
+fallthrough = true
+fallthrough = true
 
 [vars]
 # Optional. If you connect a custom domain to the R2 bucket, put it here

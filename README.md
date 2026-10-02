@@ -40,9 +40,9 @@ Each installation is completely independent: its own login, data and photos.
   Inside it you can still manage several websites and invite extra people with roles if you want.
 - **Draft → Publish.** Edits are saved as drafts. The website only changes when you press
   **Publish**, so half-finished work never goes live.
-- **Schema-driven.** Each website declares its own structure (sections, fields, menu)
-  in a small JSON schema. Mister Admin builds the editing screens from it.
-  A different website = a different schema, same app.
+- **Easy, Apple-style.** Pick a template (Business, Music / Events, Portfolio), fill in the
+  sections, press Publish. Sections and fields are edited visually; no code, no JSON.
+  Liquid-glass design, light and dark mode, works on phone and desktop.
 - **Safe by design.** Server-side validation of every field, images can only reference
   photos that exist, deleting a photo in use is refused, every action is logged,
   one-click JSON backup and restore.

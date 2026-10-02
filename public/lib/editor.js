@@ -29,7 +29,7 @@ export async function collectionView(site, name, state) {
       dirty = false;
       state.setDirty(false);
       state.onSaved?.();
-      toast('Saved. Remember to Publish when you are ready.', 'success');
+      toast('Saved ✓  Press Publish when you want it on the website.', 'success');
       renderBody();
     } catch (e) {
       clear(errors);
@@ -51,7 +51,12 @@ export async function collectionView(site, name, state) {
     h('div', { class: 'page-head' }, h('h1', {}, col.label), col.help ? h('span', { class: 'muted small', style: { width: '100%' } }, col.help) : null),
     errors, body
   );
-  if (canEdit) root.append(h('div', { class: 'sticky-actions' }, saveBtn, status));
+  if (canEdit) {
+    root.append(h('div', { class: 'sticky-actions' }, status, saveBtn));
+    const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (!saveBtn.disabled) save(); } };
+    document.addEventListener('keydown', onKey);
+    state.onLeave = () => document.removeEventListener('keydown', onKey);
+  }
 
   try {
     const r = await api('GET', `/api/sites/${site.id}/content/${name}`);
@@ -75,9 +80,9 @@ function listEditor(col, items, ctx, markDirty) {
   const open = new Set();
   const render = () => {
     clear(wrap);
-    if (!items.length) wrap.append(h('div', { class: 'empty' }, `No ${col.label.toLowerCase()} yet.`));
+    if (!items.length) wrap.append(h('div', { class: 'empty' }, h('div', { class: 'big' }, '✨'), h('h3', {}, `No ${col.label.toLowerCase()} yet`), h('p', { class: 'muted' }, 'Press "Add" to create the first one.')));
     items.forEach((item, i) => wrap.append(itemRow(col, item, i, items, ctx, markDirty, open, render)));
-    if (!ctx.readOnly) wrap.append(h('button', { class: 'btn', style: { marginTop: '.5rem' }, onClick: () => { const it = blank(col); items.push(it); open.add(it.id); markDirty(); render(); } }, '+ Add'));
+    if (!ctx.readOnly) wrap.append(h('button', { class: 'btn btn-primary', style: { marginTop: '.5rem' }, onClick: () => { const it = blank(col); items.push(it); open.add(it.id); markDirty(); render(); } }, '+ Add'));
   };
   render();
   return wrap;
@@ -94,7 +99,7 @@ function itemRow(col, item, i, siblings, ctx, markDirty, open, rerender, depth =
   if (!item.id) item.id = newId();
   const isOpen = open.has(item.id);
   const head = h('div', { class: 'item-head', onClick: (e) => { if (e.target.closest('button')) return; if (isOpen) open.delete(item.id); else open.add(item.id); rerender(); } },
-    h('span', { class: 'muted' }, isOpen ? '▾' : '▸'),
+    h('span', { class: `chev${isOpen ? ' open' : ''}` }, '▶'),
     h('span', { class: 'title' }, titleOf(col, item)),
     !ctx.readOnly ? [
       h('button', { class: 'btn btn-sm btn-icon', title: 'Move up', disabled: i === 0, onClick: () => { [siblings[i - 1], siblings[i]] = [siblings[i], siblings[i - 1]]; markDirty(); rerender(); } }, '↑'),
@@ -103,7 +108,9 @@ function itemRow(col, item, i, siblings, ctx, markDirty, open, rerender, depth =
       h('button', { class: 'btn btn-sm btn-icon btn-danger', title: 'Delete', onClick: async () => { if (await confirmDialog(`Delete "${titleOf(col, item)}"?`, { okLabel: 'Delete', danger: true })) { siblings.splice(i, 1); markDirty(); rerender(); } } }, '✕'),
     ] : null
   );
-  const el = h('div', { class: 'item' }, head);
+  const tools = head.querySelectorAll('button');
+  if (tools.length) { const wrap = h('span', { class: 'tools' }); tools.forEach((b) => wrap.append(b)); head.append(wrap); }
+  const el = h('div', { class: `item${isOpen ? ' open' : ''}` }, head);
   if (isOpen) {
     const bodyEl = h('div', { class: 'item-body' }, renderFields(col.fields, item, { ...ctx, onChange: (f) => { markDirty(); if (f === col.titleField) head.querySelector('.title').textContent = titleOf(col, item); } }));
     if (col.type === 'tree' && depth < 3) {

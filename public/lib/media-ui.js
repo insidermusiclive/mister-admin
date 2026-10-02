@@ -54,7 +54,7 @@ export function dropzone(onFiles, label = 'Drop photos here, or click to choose'
     onDragover: (e) => { e.preventDefault(); dz.classList.add('over'); },
     onDragleave: () => dz.classList.remove('over'),
     onDrop: (e) => { e.preventDefault(); dz.classList.remove('over'); onFiles(e.dataTransfer.files); },
-  }, h('div', {}, '📷 ', label), h('div', { class: 'small' }, 'JPG, PNG, HEIC (iPhone), WebP, GIF, TIFF. Photos are resized and converted in your browser before upload.'), input);
+  }, h('div', { class: 'big' }, '📷'), h('div', {}, h('strong', {}, label)), h('div', { class: 'small', style: { marginTop: '.3rem' } }, 'Any photo from your phone or computer. It is shrunk and converted automatically.'), input);
   return dz;
 }
 
@@ -75,7 +75,7 @@ export async function mediaLibraryView(site, canEdit) {
 
   const render = () => {
     clear(grid);
-    if (!media.length) grid.append(h('div', { class: 'empty', style: { gridColumn: '1 / -1' } }, 'No photos yet.'));
+    if (!media.length) grid.append(h('div', { class: 'empty', style: { gridColumn: '1 / -1' } }, h('div', { class: 'big' }, '🖼️'), h('h3', {}, 'No photos yet'), h('p', { class: 'muted' }, 'Drop photos in the box above.')));
     for (const m of media) grid.append(mediaTile(m, { onClick: () => openDetails(m) }));
   };
 

@@ -1,11 +1,13 @@
 // Mister Admin - application shell and router.
-import { h, clear, toast, modal, confirmDialog, formatDate } from './lib/dom.js';
+import { h, append, clear, toast, modal, confirmDialog, formatDate } from './lib/dom.js';
 import { api } from './lib/api.js';
 import { collectionView } from './lib/editor.js';
 import { mediaLibraryView } from './lib/media-ui.js';
+import { TEMPLATES, templateById } from './lib/templates.js';
+import { schemaBuilder, cleanSchema } from './lib/schema-builder.js';
 
 const app = document.getElementById('app');
-const state = { user: null, site: null, dirty: false, setDirty(v) { state.dirty = v; } };
+const state = { user: null, site: null, dirty: false, onLeave: null, setDirty(v) { state.dirty = v; } };
 
 window.addEventListener('ma:unauthorized', () => { state.user = null; go('/login'); });
 window.addEventListener('beforeunload', (e) => { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
@@ -20,6 +22,7 @@ async function route() {
     return;
   }
   state.dirty = false;
+  if (state.onLeave) { state.onLeave(); state.onLeave = null; }
   const path = currentPath();
   const parts = path.split('/').filter(Boolean);
 
@@ -82,17 +85,17 @@ function page(title, content) {
 function publishState(site) {
   const canPublish = ['owner', 'editor'].includes(site.role);
   const wrap = h('span', { id: 'publish-state', class: 'row' });
-  wrap.append(site.has_unpublished_changes ? h('span', { class: 'badge badge-warn' }, 'Unpublished changes') : h('span', { class: 'badge badge-ok' }, site.published_at ? 'Live' : 'Never published'));
+  wrap.append(site.has_unpublished_changes ? h('span', { class: 'badge badge-warn badge-dot' }, 'Changes not yet on the website') : h('span', { class: `badge ${site.published_at ? 'badge-ok' : ''} badge-dot` }, site.published_at ? 'Website up to date' : 'Not published yet'));
   if (canPublish) {
     wrap.append(h('button', { class: 'btn btn-primary btn-sm', onClick: async (e) => {
       if (state.dirty) { toast('Save your changes first', 'error'); return; }
-      e.target.disabled = true;
+      e.target.disabled = true; e.target.textContent = 'Publishing…';
       try {
         await api('POST', `/api/sites/${site.id}/publish`);
         if (site.deploy_hook_url) await api('POST', `/api/sites/${site.id}/deploy`).catch((err) => toast(`Published, but the rebuild could not start: ${err.message}`, 'error'));
-        toast('Published! The website will show the changes within a minute.', 'success');
+        toast('🎉 Your website is up to date.', 'success', 5000);
         await refreshSiteHeader(site.id);
-      } catch (err) { toast(err.message, 'error'); } finally { e.target.disabled = false; }
+      } catch (err) { toast(err.message, 'error'); } finally { e.target.disabled = false; e.target.textContent = 'Publish'; }
     } }, 'Publish'));
   }
   if (site.url) wrap.append(h('a', { href: site.url, target: '_blank', class: 'btn btn-ghost btn-sm' }, 'View site ↗'));
@@ -101,20 +104,21 @@ function publishState(site) {
 
 function siteShell(site, section, sub, view) {
   const cols = Object.entries(site.schema.collections);
-  const link = (href, label, active) => h('a', { href, class: active ? 'active' : '' }, label);
+  const icon = (c) => c.type === 'tree' ? '☰' : c.type === 'list' ? '≡' : '▢';
+  const link = (href, label, active, ico) => h('a', { href, class: active ? 'active' : '' }, ico ? h('span', { class: 'ico' }, ico) : null, label);
   const sidebar = h('nav', { class: 'sidebar' },
-    h('h4', {}, 'Content'),
-    cols.length ? cols.map(([name, c]) => link(`#/site/${site.id}/content/${name}`, c.label, section === 'content' && (sub === name || (!sub && name === cols[0][0])))) : h('p', { class: 'muted small', style: { padding: '0 .6rem' } }, 'No sections yet'),
-    h('h4', {}, 'Site'),
-    link(`#/site/${site.id}/media`, 'Photos', section === 'media'),
-    link(`#/site/${site.id}/members`, 'People', section === 'members'),
-    link(`#/site/${site.id}/history`, 'History', section === 'history'),
-    site.role === 'owner' ? link(`#/site/${site.id}/settings`, 'Settings', section === 'settings') : null,
+    h('h4', {}, 'Your content'),
+    cols.length ? cols.map(([name, c]) => link(`#/site/${site.id}/content/${name}`, c.label, section === 'content' && (sub === name || (!sub && name === cols[0][0])), icon(c))) : h('p', { class: 'muted small', style: { padding: '0 .75rem' } }, 'No sections yet. Add them in Settings.'),
+    h('h4', {}, 'Website'),
+    link(`#/site/${site.id}/media`, 'Photos', section === 'media', '🖼'),
+    link(`#/site/${site.id}/members`, 'People', section === 'members', '👤'),
+    link(`#/site/${site.id}/history`, 'History', section === 'history', '🕘'),
+    site.role === 'owner' ? link(`#/site/${site.id}/settings`, 'Settings', section === 'settings', '⚙︎') : null,
     h('h4', {}, ''),
-    link('#/sites', '← All sites', false)
+    link('#/sites', 'All websites', false, '←')
   );
   return h('div', {},
-    topbar(h('span', { class: 'row' }, h('strong', {}, site.name), publishState(site))),
+    topbar(h('span', { class: 'row' }, h('span', { class: 'site-name' }, site.name), publishState(site))),
     h('div', { class: 'shell' }, sidebar, h('main', { class: 'main' }, view))
   );
 }
@@ -146,15 +150,15 @@ function setupView() {
   const btn = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Create administrator');
   const form = h('form', { onSubmit: async (e) => {
     e.preventDefault(); btn.disabled = true;
-    try { state.user = (await api('POST', '/api/auth/setup', { name: name.value, email: email.value, password: pass.value })).user; toast('Welcome! Create your first site.', 'success'); go('/sites'); }
+    try { state.user = (await api('POST', '/api/auth/setup', { name: name.value, email: email.value, password: pass.value })).user; toast('Welcome! Now add your first website.', 'success'); go('/sites'); }
     catch (err) { toast(err.message, 'error'); } finally { btn.disabled = false; }
   } },
-    h('p', { class: 'muted' }, 'This is a fresh installation. Create the first administrator account.'),
+    h('p', { class: 'muted' }, 'Mister Admin is installed. Create your account. It is the only account that can manage everything.'),
     h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Your name'), name),
     h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Email'), email),
     h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Password (10+ characters)'), pass),
     btn);
-  return authCard('Welcome to Mister Admin', form);
+  return authCard('Welcome 👋', form);
 }
 
 // ---------- sites ----------
@@ -163,69 +167,65 @@ async function sitesView() {
   const grid = h('div', { class: 'grid' });
   let sites = [];
   try { sites = (await api('GET', '/api/sites')).sites; } catch (e) { toast(e.message, 'error'); }
-  if (!sites.length) grid.append(h('div', { class: 'empty', style: { gridColumn: '1 / -1' } }, state.user.is_admin ? 'No sites yet. Create your first one.' : 'You have not been given access to any site yet. Ask your administrator.'));
+  if (!sites.length) grid.append(h('div', { class: 'empty', style: { gridColumn: '1 / -1', padding: '3.5rem 1.5rem' } }, h('div', { class: 'big' }, '🌐'), h('h3', {}, state.user.is_admin ? 'Add your first website' : 'No websites yet'),
+    h('p', { class: 'muted' }, state.user.is_admin ? 'Pick a template, give it a name, and start filling it in. Takes a minute.' : 'You have not been given access to a website yet. Ask your administrator.'),
+    state.user.is_admin ? h('button', { class: 'btn btn-primary btn-lg', style: { marginTop: '.75rem' }, onClick: createSiteDialog }, '+ Add website') : null));
   for (const s of sites) {
     grid.append(h('a', { class: 'card site-card', href: `#/site/${s.id}` },
-      h('h3', {}, s.name),
-      h('p', { class: 'muted small' }, s.url || s.slug),
-      h('div', { class: 'row' }, h('span', { class: 'badge badge-primary' }, s.role), s.has_unpublished_changes ? h('span', { class: 'badge badge-warn' }, 'Unpublished changes') : s.published_at ? h('span', { class: 'badge badge-ok' }, 'Live') : h('span', { class: 'badge' }, 'Never published'))));
+      h('h3', {}, s.name), h('span', { class: 'arrow' }, '›'),
+      h('div', { class: 'url' }, s.url || `${s.slug}`),
+      h('div', { class: 'row' }, s.has_unpublished_changes ? h('span', { class: 'badge badge-warn badge-dot' }, 'Changes to publish') : s.published_at ? h('span', { class: 'badge badge-ok badge-dot' }, 'Up to date') : h('span', { class: 'badge badge-dot' }, 'Not published yet'), s.role !== 'owner' ? h('span', { class: 'badge badge-primary' }, s.role) : null)));
   }
-  const head = h('div', { class: 'page-head' }, h('h1', {}, 'Your sites'),
-    state.user.is_admin ? h('button', { class: 'btn btn-primary', onClick: createSiteDialog }, '+ New site') : null);
+  const head = h('div', { class: 'page-head' }, h('h1', {}, 'Your websites'),
+    state.user.is_admin && sites.length ? h('button', { class: 'btn btn-primary', onClick: createSiteDialog }, '+ Add website') : null);
   return h('div', {}, topbar(), h('div', { class: 'main', style: { margin: '0 auto' } }, head, grid));
 }
 
 async function createSiteDialog() {
-  const name = h('input', { type: 'text', placeholder: 'My Bakery' });
-  const slug = h('input', { type: 'text', placeholder: 'my-bakery', pattern: '[a-z0-9-]+' });
-  const url = h('input', { type: 'url', placeholder: 'https://my-bakery.pages.dev' });
-  name.addEventListener('input', () => { if (!slug.dataset.touched) slug.value = name.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); });
+  const name = h('input', { type: 'text', placeholder: 'e.g. Torpedo Records', autofocus: true });
+  const slug = h('input', { type: 'text', placeholder: 'torpedo-records', pattern: '[a-z0-9-]+' });
+  const url = h('input', { type: 'url', placeholder: 'https://torpedo-records.pages.dev' });
+  name.addEventListener('input', () => { if (!slug.dataset.touched) slug.value = name.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); });
   slug.addEventListener('input', () => { slug.dataset.touched = '1'; });
-  const r = await modal({ title: 'New site', body: h('div', {},
-    h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Site name'), name),
-    h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Slug (used in the public content URL)'), slug, h('span', { class: 'help' }, 'Lowercase letters, numbers and dashes. Cannot be changed later.')),
-    h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Website address (optional)'), url),
-    h('p', { class: 'small muted' }, 'The site starts with a basic example schema that you can change in Settings.')),
-    actions: [{ label: 'Cancel', value: null, class: 'btn-ghost' }, { label: 'Create', class: 'btn-primary', onClick: async () => {
-      try { const res = await api('POST', '/api/sites', { name: name.value, slug: slug.value, url: url.value, schema: STARTER_SCHEMA }); go(`/site/${res.site.id}`); return true; }
+  let template = 'business';
+  let step = 1;
+  const body = h('div');
+  const steps = h('div', { class: 'steps' }, h('span', { class: 'done' }), h('span'));
+  const choices = h('div', { class: 'choices' });
+  const drawChoices = () => { clear(choices); for (const t of TEMPLATES) choices.append(h('button', { type: 'button', class: `choice${template === t.id ? ' selected' : ''}`, onClick: () => { template = t.id; drawChoices(); } }, h('div', { class: 'ico' }, t.icon), h('strong', {}, t.name), h('span', {}, t.blurb))); };
+  const draw = () => {
+    clear(body);
+    steps.children[1].classList.toggle('done', step === 2);
+    body.append(steps);
+    if (step === 1) {
+      body.append(h('p', { class: 'lead' }, 'What is the website called?'),
+        h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Name'), name),
+        h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Website address (optional)'), url, h('span', { class: 'help' }, 'Where the website lives, so you can open it from here.')),
+        h('div', { class: 'field' }, h('button', { class: 'disclosure', type: 'button', onClick: (e) => { adv.classList.toggle('hidden'); } }, 'Advanced ▾'),
+          adv));
+    } else {
+      drawChoices();
+      body.append(h('p', { class: 'lead' }, 'What kind of website is it? You can change everything later.'), choices);
+    }
+  };
+  const adv = h('div', { class: 'hidden', style: { marginTop: '.6rem' } }, h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Short id'), slug, h('span', { class: 'help' }, 'Used in the content address. Lowercase letters, numbers and dashes. Cannot be changed later.')));
+  draw();
+  const r = await modal({ title: 'Add a website', body, actions: [
+    { label: 'Cancel', value: null, class: 'btn-ghost' },
+    { label: 'Continue', class: 'btn-primary', onClick: async () => {
+      if (step === 1) {
+        if (!name.value.trim()) { toast('Give the website a name', 'error'); return false; }
+        step = 2; draw();
+        const btn = document.querySelector('.modal-actions .btn-primary'); if (btn) btn.textContent = 'Create website';
+        return false;
+      }
+      try { const res = await api('POST', '/api/sites', { name: name.value, slug: slug.value, url: url.value, schema: templateById(template).schema }); toast('Website added. Fill in the sections on the left.', 'success', 5000); go(`/site/${res.site.id}`); return true; }
       catch (e) { toast(e.message, 'error'); return false; }
     } }] });
   return r;
 }
 
-export const STARTER_SCHEMA = {
-  collections: {
-    settings: { label: 'Site settings', type: 'single', fields: [
-      { name: 'title', type: 'text', label: 'Site title', required: true },
-      { name: 'tagline', type: 'text', label: 'Tagline' },
-      { name: 'logo', type: 'image', label: 'Logo' },
-      { name: 'phone', type: 'text', label: 'Phone' },
-      { name: 'email', type: 'text', label: 'Email' },
-      { name: 'address', type: 'textarea', label: 'Address' },
-    ] },
-    navigation: { label: 'Menu', type: 'tree', titleField: 'label', fields: [
-      { name: 'label', type: 'text', label: 'Label', required: true },
-      { name: 'url', type: 'link', label: 'Link', required: true },
-    ] },
-    hero: { label: 'Home page banner', type: 'single', fields: [
-      { name: 'heading', type: 'text', label: 'Heading', required: true },
-      { name: 'text', type: 'markdown', label: 'Text' },
-      { name: 'image', type: 'image', label: 'Background photo' },
-      { name: 'button_label', type: 'text', label: 'Button label' },
-      { name: 'button_url', type: 'link', label: 'Button link' },
-    ] },
-    gallery: { label: 'Photo gallery', type: 'single', fields: [
-      { name: 'photos', type: 'gallery', label: 'Photos' },
-    ] },
-    news: { label: 'News', type: 'list', titleField: 'title', fields: [
-      { name: 'title', type: 'text', label: 'Title', required: true },
-      { name: 'date', type: 'date', label: 'Date', required: true },
-      { name: 'body', type: 'markdown', label: 'Text' },
-      { name: 'image', type: 'image', label: 'Photo' },
-      { name: 'published', type: 'boolean', label: 'Show on website' },
-    ] },
-  },
-};
+export const STARTER_SCHEMA = TEMPLATES[0].schema;
 
 // ---------- members ----------
 async function membersView(site) {
@@ -246,7 +246,7 @@ async function membersView(site) {
   return h('div', {}, h('div', { class: 'page-head' }, h('h1', {}, 'People')),
     h('div', { class: 'card' }, table),
     add,
-    h('div', { class: 'card small muted' }, h('strong', {}, 'Roles: '), 'Viewer can look. Editor can change content, upload photos and publish. Owner can also change settings, the schema and who has access.'));
+    h('div', { class: 'card small muted' }, h('strong', {}, 'Roles: '), 'Viewer can look. Editor can change content, upload photos and publish. Owner can also change settings, the sections and who has access.'));
 }
 
 // ---------- history ----------
@@ -262,8 +262,16 @@ async function settingsView(site) {
   const name = h('input', { type: 'text', value: site.name });
   const url = h('input', { type: 'url', value: site.url });
   const hook = h('input', { type: 'url', placeholder: 'https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/…', value: site.deploy_hook_url === '(set)' ? '' : '' });
+  const working = JSON.parse(JSON.stringify(site.schema));
   const schema = h('textarea', { class: 'code', spellcheck: false }, JSON.stringify(site.schema, null, 2));
   const schemaErr = h('p', { class: 'small', style: { color: 'var(--danger)' } });
+  const builderDirty = h('span', { class: 'badge badge-warn badge-dot hidden' }, 'Not saved');
+  const builder = schemaBuilder(working, { onChange: () => builderDirty.classList.remove('hidden') });
+  const saveBuilder = async () => {
+    try { await api('PUT', `/api/sites/${site.id}`, { schema: cleanSchema(working) }); toast('Sections saved', 'success'); state.site = null; route(); }
+    catch (e) { toast(e.message, 'error'); }
+  };
+  const advanced = h('div', { class: 'hidden' });
   const publicUrl = `${location.origin}/api/public/${site.slug}/content`;
 
   const saveGeneral = async () => {
@@ -278,8 +286,8 @@ async function settingsView(site) {
     schemaErr.textContent = '';
     let parsed;
     try { parsed = JSON.parse(schema.value); } catch (e) { schemaErr.textContent = `Not valid JSON: ${e.message}`; return; }
-    if (!(await confirmDialog('Changing the schema can hide content whose fields were removed. Continue?'))) return;
-    try { await api('PUT', `/api/sites/${site.id}`, { schema: parsed }); toast('Schema saved', 'success'); state.site = null; route(); }
+    if (!(await confirmDialog('Replacing the structure can hide content whose fields were removed. Continue?'))) return;
+    try { await api('PUT', `/api/sites/${site.id}`, { schema: parsed }); toast('Structure saved', 'success'); state.site = null; route(); }
     catch (e) { schemaErr.textContent = e.message; toast(e.message, 'error'); }
   };
 
@@ -303,12 +311,17 @@ async function settingsView(site) {
     h('div', { class: 'card' }, h('h3', {}, 'Connect your website'),
       h('p', { class: 'small' }, 'Your website reads its published content from this address:'),
       h('p', {}, h('code', {}, publicUrl)),
-      h('p', { class: 'small muted' }, 'See docs/05-connecting-a-site.md in the Mister Admin repository for the one-line script that fills your pages.')),
-    h('div', { class: 'card' }, h('h3', {}, 'Schema'),
-      h('p', { class: 'small muted' }, 'The schema defines which sections and fields this site has. See docs/04-schema-format.md.'),
-      schema, schemaErr,
-      h('div', { class: 'row', style: { marginTop: '.5rem' } }, h('button', { class: 'btn btn-primary', onClick: saveSchema }, 'Save schema'),
-        h('button', { class: 'btn', onClick: () => { schema.value = JSON.stringify(STARTER_SCHEMA, null, 2); } }, 'Reset to starter example'))),
+      h('p', { class: 'small muted' }, 'Add this line at the bottom of each page of your website, then mark the parts to fill in (see docs/05-connecting-a-site.md):'),
+      h('p', {}, h('code', {}, `<script src="${location.origin}/client/mister-admin.js" data-admin="${location.origin}" data-site="${site.slug}" defer></script>`))),
+    h('div', { class: 'card' }, h('div', { class: 'row', style: { marginBottom: '.25rem' } }, h('h3', {}, 'Sections of your website'), builderDirty),
+      h('p', { class: 'lead' }, 'Each section is a part of the website you can edit. Add fields to a section to decide what can be changed there.'),
+      builder,
+      h('div', { class: 'row', style: { marginTop: '1rem' } }, h('button', { class: 'btn btn-primary', onClick: saveBuilder }, 'Save sections'),
+        h('button', { class: 'disclosure', type: 'button', onClick: () => { advanced.classList.toggle('hidden'); } }, 'Advanced ▾')),
+      append(advanced, [h('p', { class: 'small muted', style: { marginTop: '1rem' } }, 'For developers: the same structure as JSON (see docs/04-schema-format.md).'),
+        schema, schemaErr,
+        h('div', { class: 'row', style: { marginTop: '.5rem' } }, h('button', { class: 'btn', onClick: saveSchema }, 'Save JSON'),
+          h('button', { class: 'btn', onClick: () => { schema.value = JSON.stringify(STARTER_SCHEMA, null, 2); } }, 'Reset to the Business template'))])),
     h('div', { class: 'card' }, h('h3', {}, 'Backup'),
       h('div', { class: 'row' },
         h('a', { class: 'btn', href: `/api/sites/${site.id}/export`, download: `${site.slug}-export.json` }, 'Download backup (JSON)'),

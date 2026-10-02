@@ -18,7 +18,8 @@ One Mister Admin manages as many sites as you like.
 ### Schema
 The schema is the contract between Mister Admin and a website. It lists the
 **collections** (sections) of the site and the **fields** in each. The admin builds its
-editing screens from it. Since every site has its own schema, every site gets its own admin
+editing screens from it. You create it by picking a template when adding a website and
+by using the visual "Sections" editor in Settings; no code involved. Since every site has its own schema, every site gets its own admin
 screens without any code change. Full reference: [04-schema-format.md](04-schema-format.md).
 
 ### Collection

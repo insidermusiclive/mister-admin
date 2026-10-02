@@ -33,8 +33,9 @@ export function renderField(f, value, ctx) {
       return h('label', { class: 'field' }, labelEl(f),
         h('input', { ...common, type: 'number', value: cur ?? '', min: f.min, max: f.max, step: 'any', onInput: (e) => set(e.target.value === '' ? null : Number(e.target.value)) }), helpEl(f));
     case 'boolean':
-      return h('div', { class: 'field' }, h('label', { class: 'check' },
-        h('input', { ...common, type: 'checkbox', checked: !!cur, onChange: (e) => set(e.target.checked) }), h('span', { class: 'lbl', style: { margin: 0 } }, f.label)), helpEl(f));
+      return h('div', { class: 'field' }, h('label', { class: 'switch' },
+        h('span', {}, h('span', { class: 'lbl' }, f.label), f.help ? h('span', { class: 'help', style: { marginTop: 0 } }, f.help) : null),
+        h('input', { ...common, type: 'checkbox', checked: !!cur, onChange: (e) => set(e.target.checked) }), h('span', { class: 'knob' })));
     case 'date':
       return h('label', { class: 'field' }, labelEl(f),
         h('input', { ...common, type: 'date', value: cur ?? '', onInput: (e) => set(e.target.value) }), helpEl(f));

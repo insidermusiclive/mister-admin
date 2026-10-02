@@ -1,7 +1,11 @@
 # 4. Schema format
 
 The schema tells Mister Admin what a website can edit. It is a JSON object stored per site.
-Edit it in the admin under **Settings → Schema**, or send it with the API.
+
+**You normally never see it.** In the admin, **Settings → Sections of your website** is a visual
+editor: add a section, choose whether it is a block, a list or a menu, add fields. When you add a
+website you pick a template (Business, Music / Events, Portfolio, Start empty) that fills this in.
+The JSON below is what the visual editor produces; developers can edit it under **Advanced**.
 
 ```json
 {

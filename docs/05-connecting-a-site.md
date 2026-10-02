@@ -37,9 +37,10 @@ Text that is already in the HTML stays as the default when the value in Mister A
 
 ## Shipping the sections with the website
 
-Put a `mister-admin.json` file in the website (a schema, optionally with starting `content`, in the
-export format). When someone adds the website in Mister Admin they choose **From a file** and pick it:
-sections and starting texts are set up in one go. Keep that file next to the HTML so the website and
+Put a `mister-admin.json` file at the root of the website (a schema, optionally with starting
+`content`, in the export format) and serve it with `Access-Control-Allow-Origin: *`. When someone
+adds the website in Mister Admin and enters its address, the choice **From your website** fetches
+that file: sections and starting texts are set up in one go (a file picker is the fallback). Keep that file next to the HTML so the website and
 its sections stay in sync.
 
 A full working page is in [`examples/demo-site/index.html`](../examples/demo-site/index.html).

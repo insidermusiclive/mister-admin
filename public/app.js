@@ -192,24 +192,37 @@ async function createSiteDialog() {
   let step = 1;
   const fileInput = h('input', { type: 'file', accept: 'application/json,.json', class: 'hidden', onChange: async () => {
     const f = fileInput.files[0]; if (!f) return;
-    try {
-      const data = JSON.parse(await f.text());
-      const schema = data.schema && data.schema.collections ? data.schema : data;
-      if (!schema.collections) throw new Error('This file does not describe website sections');
-      fileSchema = { schema, content: data.content || null, fileName: f.name };
-      template = 'file';
-      if (data.site?.name && !name.value) name.value = data.site.name;
-      if (data.site?.url && !url.value) url.value = data.site.url;
-      drawChoices();
-    } catch (e) { toast(e.message, 'error'); } finally { fileInput.value = ''; }
+    try { useSchemaData(JSON.parse(await f.text()), f.name); }
+    catch (e) { toast(e.message, 'error'); } finally { fileInput.value = ''; }
   } });
   const body = h('div');
   const steps = h('div', { class: 'steps' }, h('span', { class: 'done' }), h('span'));
   const choices = h('div', { class: 'choices' });
+  const useSchemaData = (data, fileName) => {
+    const schema = data.schema && data.schema.collections ? data.schema : data;
+    if (!schema || !schema.collections) throw new Error('This file does not describe website sections');
+    fileSchema = { schema, content: data.content || null, fileName };
+    template = 'file';
+    if (data.site?.name && !name.value) name.value = data.site.name;
+    drawChoices();
+  };
+  const fromWebsite = async () => {
+    const base = url.value.trim().replace(/\/+$/, '');
+    if (base) {
+      try {
+        const res = await fetch(`${base}/mister-admin.json`, { mode: 'cors' });
+        if (!res.ok) throw new Error(`${res.status}`);
+        useSchemaData(await res.json(), `${base}/mister-admin.json`);
+        toast('Sections loaded from the website', 'success');
+        return;
+      } catch (e) { toast('No mister-admin.json found at that address. Pick the file instead.', 'error', 5000); }
+    }
+    fileInput.click();
+  };
   const drawChoices = () => {
     clear(choices);
     for (const t of TEMPLATES) choices.append(h('button', { type: 'button', class: `choice${template === t.id ? ' selected' : ''}`, onClick: () => { template = t.id; drawChoices(); } }, h('div', { class: 'ico' }, t.icon), h('strong', {}, t.name), h('span', {}, t.blurb)));
-    choices.append(h('button', { type: 'button', class: `choice${template === 'file' ? ' selected' : ''}`, onClick: () => fileInput.click() }, h('div', { class: 'ico' }, '📎'), h('strong', {}, fileSchema ? 'From file ✓' : 'From a file'), h('span', {}, fileSchema ? fileSchema.fileName : 'A website made for Mister Admin comes with a mister-admin.json file. Pick it.')), fileInput);
+    choices.append(h('button', { type: 'button', class: `choice${template === 'file' ? ' selected' : ''}`, onClick: fromWebsite }, h('div', { class: 'ico' }, '🔗'), h('strong', {}, fileSchema ? 'From your website ✓' : 'From your website'), h('span', {}, fileSchema ? fileSchema.fileName : 'The website already knows its sections (it has a mister-admin.json). Use them.')), fileInput);
   };
   const draw = () => {
     clear(body);

@@ -198,14 +198,52 @@ async function createSiteDialog() {
   const body = h('div');
   const steps = h('div', { class: 'steps' }, h('span', { class: 'done' }), h('span'));
   const choices = h('div', { class: 'choices' });
+  const detectNote = h('p', { class: 'small', style: { marginTop: '.4rem', minHeight: '1.3em' } });
   const useSchemaData = (data, fileName) => {
     const schema = data.schema && data.schema.collections ? data.schema : data;
     if (!schema || !schema.collections) throw new Error('This file does not describe website sections');
     fileSchema = { schema, content: data.content || null, fileName };
     template = 'file';
-    if (data.site?.name && !name.value) name.value = data.site.name;
+    if (data.site?.name && !name.value.trim()) name.value = data.site.name;
+    const labels = Object.values(schema.collections).map((c) => c.label || '').filter(Boolean);
+    detectNote.style.color = 'var(--ok)';
+    detectNote.textContent = `✓ This website already knows its sections: ${labels.join(', ')}.`;
     drawChoices();
+    updateButton();
   };
+  let detectTimer = null;
+  let lastDetected = '';
+  const detect = async () => {
+    const base = url.value.trim().replace(/\/+$/, '');
+    if (!/^https?:\/\/[^\s]+$/.test(base)) { if (!base) { fileSchema = null; template = 'business'; detectNote.textContent = ''; updateButton(); } return; }
+    if (base === lastDetected) return;
+    lastDetected = base;
+    detectNote.style.color = 'var(--muted)';
+    detectNote.textContent = 'Looking at the website…';
+    try {
+      const res = await fetch(`${base}/mister-admin.json`, { mode: 'cors' });
+      if (!res.ok) throw new Error(String(res.status));
+      useSchemaData(await res.json(), `${base}/mister-admin.json`);
+    } catch {
+      fileSchema = null; template = 'business';
+      detectNote.style.color = 'var(--muted)';
+      detectNote.textContent = 'No sections found on this website. You will pick a template next.';
+      updateButton();
+    }
+  };
+  const updateButton = () => { const btn = document.querySelector('.modal-actions .btn-primary'); if (btn) btn.textContent = step === 2 || fileSchema ? 'Create website' : 'Continue'; };
+  url.addEventListener('input', () => { clearTimeout(detectTimer); detectTimer = setTimeout(detect, 600); });
+  url.addEventListener('blur', detect);
+  // an address typed into the name field goes to the address field
+  name.addEventListener('input', () => {
+    const v = name.value.trim();
+    if (/^(https?:\/\/|www\.)[^\s]+$/i.test(v) || /^[a-z0-9-]+\.[a-z]{2,}(\/.*)?$/i.test(v)) {
+      url.value = v.startsWith('http') ? v : `https://${v.replace(/^www\./i, '')}`;
+      name.value = '';
+      toast('That looked like a web address, so I moved it to "Website address".', 'info', 4000);
+      detect();
+    }
+  });
   const fromWebsite = async () => {
     const base = url.value.trim().replace(/\/+$/, '');
     if (base) {
@@ -231,7 +269,7 @@ async function createSiteDialog() {
     if (step === 1) {
       body.append(h('p', { class: 'lead' }, 'What is the website called?'),
         h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Name'), name),
-        h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Website address (optional)'), url, h('span', { class: 'help' }, 'Where the website lives, so you can open it from here.')),
+        h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Website address'), url, detectNote, h('span', { class: 'help' }, 'If the website was made for Mister Admin, its sections are picked up automatically.')),
         h('div', { class: 'field' }, h('button', { class: 'disclosure', type: 'button', onClick: (e) => { adv.classList.toggle('hidden'); } }, 'Advanced ▾'),
           adv));
     } else {
@@ -246,9 +284,7 @@ async function createSiteDialog() {
     { label: 'Continue', class: 'btn-primary', onClick: async () => {
       if (step === 1) {
         if (!name.value.trim()) { toast('Give the website a name', 'error'); return false; }
-        step = 2; draw();
-        const btn = document.querySelector('.modal-actions .btn-primary'); if (btn) btn.textContent = 'Create website';
-        return false;
+        if (!fileSchema) { step = 2; draw(); updateButton(); return false; }
       }
       try {
         const schema = template === 'file' && fileSchema ? fileSchema.schema : templateById(template).schema;

@@ -15,6 +15,9 @@ double-clicking an installer. No AI, no build step, no framework, no monthly cos
 | **Command line** | developers | `npm install && npx wrangler login && node install/install.mjs` |
 
 Then open your new address, create your administrator account on the Welcome screen, and start.
+
+A ready-made copy of this whole folder is also in [`download/mister-admin-full.zip`](download/mister-admin-full.zip)
+(for a USB drive: unzip on any computer, then double-click the installer in `install/`).
 Full details: [docs/03-setup-cloudflare.md](docs/03-setup-cloudflare.md).
 
 ```

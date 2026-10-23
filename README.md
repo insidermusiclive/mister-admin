@@ -36,6 +36,7 @@ Each installation is completely independent: its own login, data and photos.
 ## What it does
 
 - **Edit text, menus, lists and photos** of any number of static websites from one place.
+- **Offers with old and new price.** A ready-made *Promotions* section (price, crossed-out old price, badge, dates, button). Offers appear and disappear by their dates. See [docs/05](docs/05-connecting-a-site.md).
 - **Photos just work.** Every photo is converted in the browser *before* upload:
   iPhone HEIC → JPEG, rotation fixed, resized to 480/1200/2000 px, encoded as WebP.
   A 6 MB phone photo becomes ~300 KB of web-ready files. Originals never hit the server.

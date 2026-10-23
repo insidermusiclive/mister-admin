@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { validateSchema, validateCollectionData, collectMediaIds } from '../functions/_lib/schema.js';
 import { resolveImages, mediaRowToObject } from '../functions/_lib/media.js';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { templateById, promotionsSection } from '../public/lib/templates.js';
 
 const example = JSON.parse(readFileSync(new URL('../examples/site.schema.json', import.meta.url)));
 
@@ -78,4 +80,62 @@ test('media resolution', () => {
   assert.equal(resolved.hero.gone, null);
   assert.equal(resolved.list[0].alt, 'Alt');
   assert.deepEqual([...collectMediaIds({ a: [{ media_id: 'm1' }], b: { c: { media_id: 'm2' } } })], ['m1', 'm2']);
+});
+
+// ---- Promotions: ready-made section + site client renderer -------------------------------------
+function loadClient() {
+  const sandbox = { window: {}, document: { currentScript: null, readyState: 'complete' }, navigator: { language: 'en' } };
+  vm.createContext(sandbox);
+  vm.runInContext(readFileSync(new URL('../site-client/mister-admin.js', import.meta.url), 'utf8'), sandbox);
+  return sandbox.window.MisterAdmin;
+}
+const client = loadClient();
+
+test('promotions section is a valid schema and a fresh copy each time', () => {
+  const schema = { collections: { promotions: promotionsSection() } };
+  const s = validateSchema(schema);
+  assert.equal(s.collections.promotions.type, 'list');
+  assert.notEqual(promotionsSection(), promotionsSection());
+  assert.ok(templateById('business').schema.collections.promotions);
+  validateSchema(templateById('business').schema);
+});
+
+test('promotion content validates (prices, dates, switch)', () => {
+  const s = validateSchema({ collections: { promotions: promotionsSection() } });
+  const ok = validateCollectionData(s.collections.promotions, [{ title: 'Facial', old_price: 70, price: 63, duration: '60 min', start_date: '2026-09-28', end_date: '2026-10-03', published: true }], new Set());
+  assert.equal(ok[0].price, 63);
+  assert.equal(ok[0].published, true);
+  assert.throws(() => validateCollectionData(s.collections.promotions, [{ title: 'x', price: -5 }], new Set()), /errors/);
+  assert.throws(() => validateCollectionData(s.collections.promotions, [{ title: 'x', end_date: 'soon' }], new Set()), /errors/);
+});
+
+test('client: an offer runs only inside its dates and when published', () => {
+  const p = client.promos;
+  const item = { published: true, start_date: '2026-09-28', end_date: '2026-10-03' };
+  assert.equal(p.isRunning(item, '2026-09-27'), false);
+  assert.equal(p.isRunning(item, '2026-09-28'), true);
+  assert.equal(p.isRunning(item, '2026-10-03'), true);
+  assert.equal(p.isRunning(item, '2026-10-04'), false);
+  assert.equal(p.isRunning({ ...item, published: false }, '2026-09-30'), false);
+  assert.equal(p.isRunning({ published: true }, '2030-01-01'), true);
+});
+
+test('client: price, discount badge and dates are formatted for the visitor', () => {
+  const m = client.promos.model({ title: 'Facial', old_price: 70, price: 63, duration: '60 min', start_date: '2026-09-28', end_date: '2026-10-03', button_url: 'https://x.test/book' }, { locale: 'fr-BE' });
+  assert.equal(m.price.replace(/\s/g, ' '), '63 €');
+  assert.equal(m.oldPrice.replace(/\s/g, ' '), '70 €');
+  assert.equal(m.badge, '-10%');
+  assert.equal(m.validity, 'Du 28/09/2026 au 03/10/2026');
+  assert.equal(m.buttonLabel, 'Réserver');
+  const own = client.promos.model({ title: 'Box', price: 49.5, discount_label: '-20 %', end_date: '2026-10-03' }, { locale: 'en', currency: 'EUR' });
+  assert.equal(own.badge, '-20 %');
+  assert.match(own.validity, /^Until /);
+  assert.match(own.price, /49\.50/);
+});
+
+test('client: card html escapes content', () => {
+  const html = client.promos.html({ title: '<img src=x onerror=alert(1)>', price: 10, button_url: 'https://x.test', button_label: '"><b>' }, { locale: 'en', variant: 'cards' });
+  assert.equal(html.includes('<img src=x'), false);
+  assert.equal(html.includes('"><b>'), false);
+  assert.match(html, /ma-promo__now/);
 });

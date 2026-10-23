@@ -25,6 +25,29 @@ const social = [
   { name: 'youtube', type: 'link', label: 'YouTube' },
 ];
 
+// Ready-made "Promotions" section: old price -> new price, duration, dates, conditions, booking button.
+// The website client draws it with data-ma-promos (see docs/05-connecting-a-site.md).
+const PROMOTIONS = { label: 'Promotions', type: 'list', titleField: 'title',
+  help: 'Special offers. An offer shows on the website between its start and end date, and disappears by itself afterwards.',
+  fields: [
+    { name: 'title', type: 'text', label: 'Offer name', required: true, help: 'e.g. the treatment or product on offer' },
+    { name: 'old_price', type: 'number', label: 'Normal price (€)', min: 0, help: 'Shown crossed out. Leave empty if there is no old price.' },
+    { name: 'price', type: 'number', label: 'Offer price (€)', min: 0 },
+    { name: 'discount_label', type: 'text', label: 'Discount badge', help: 'Optional, e.g. -10%. Left empty, it is calculated from the two prices.', maxLength: 30 },
+    { name: 'duration', type: 'text', label: 'Duration', help: 'e.g. 60 min', maxLength: 60 },
+    { name: 'start_date', type: 'date', label: 'Starts on', help: 'Optional. Empty = already running.' },
+    { name: 'end_date', type: 'date', label: 'Ends on', help: 'Optional. After this date the offer is hidden.' },
+    { name: 'intro', type: 'text', label: 'One-line introduction', maxLength: 300 },
+    { name: 'conditions', type: 'markdown', label: 'Details and conditions' },
+    { name: 'photo', type: 'image', label: 'Photo' },
+    { name: 'button_label', type: 'text', label: 'Button text', help: 'e.g. Book your appointment', maxLength: 80 },
+    { name: 'button_url', type: 'link', label: 'Button link' },
+    { name: 'published', type: 'boolean', label: 'Show on website' },
+  ] };
+
+/** A fresh copy each time, so editing one site's schema never changes another's. */
+export const promotionsSection = () => JSON.parse(JSON.stringify(PROMOTIONS));
+
 export const TEMPLATES = [
   {
     id: 'business', icon: '🏪', name: 'Business', blurb: 'Shop, restaurant, service. Banner, about, services, news, gallery.',
@@ -32,6 +55,7 @@ export const TEMPLATES = [
       about: { label: 'About us', type: 'single', fields: [{ name: 'heading', type: 'text', label: 'Heading' }, { name: 'text', type: 'markdown', label: 'Text' }, { name: 'photo', type: 'image', label: 'Photo' }] },
       services: { label: 'Services', type: 'list', titleField: 'name', fields: [{ name: 'name', type: 'text', label: 'Name', required: true }, { name: 'description', type: 'markdown', label: 'Description' }, { name: 'price', type: 'text', label: 'Price' }, { name: 'photo', type: 'image', label: 'Photo' }] },
       news: { label: 'News', type: 'list', titleField: 'title', fields: [{ name: 'title', type: 'text', label: 'Title', required: true }, { name: 'date', type: 'date', label: 'Date', required: true }, { name: 'body', type: 'markdown', label: 'Text' }, { name: 'image', type: 'image', label: 'Photo' }, { name: 'published', type: 'boolean', label: 'Show on website' }] },
+      promotions: promotionsSection(),
       gallery: { label: 'Photo gallery', type: 'single', fields: [{ name: 'photos', type: 'gallery', label: 'Photos' }] },
       opening_hours: { label: 'Opening hours', type: 'list', titleField: 'day', fields: [{ name: 'day', type: 'select', label: 'Day', options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], required: true }, { name: 'hours', type: 'text', label: 'Hours', help: 'e.g. 9:00 – 18:00 or Closed' }] },
     } },

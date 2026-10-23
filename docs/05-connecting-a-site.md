@@ -35,6 +35,33 @@ Add the client script at the end of your HTML and mark up elements with `data-ma
 
 Text that is already in the HTML stays as the default when the value in Mister Admin is empty.
 
+## Promotions (offers with old price → new price)
+
+Add the ready-made **Promotions** section (Settings → Sections of your website → **+ Add section →
+Promotions**; the Business template already contains it). For every offer the owner fills in: offer
+name, normal price, offer price, optional badge (calculated, e.g. `-10%`, when left empty), duration,
+start and end date, introduction, details and conditions, photo, button text and link, and a
+**Show on website** switch.
+
+On the website, one line draws the cards:
+
+```html
+<div data-ma-promos="promotions">Default text shown when there is no offer</div>
+```
+
+- An offer shows only while it is published **and** inside its dates, and disappears by itself after
+  the end date. Nothing has to be deleted.
+- Prices and dates are formatted for the visitor (`63 €`, `28/09/2026`). Set `data-locale="fr-BE"`
+  (and `data-currency="EUR"`) on the script tag, or `data-ma-locale` / `data-ma-currency` on the element.
+  Built-in wording for English, French and Dutch (Duration/Durée/Duur, Valid/Valable/Geldig…).
+- `data-ma-promos-variant="feature"` shows only the first running offer, large and without a card,
+  for a home page block. `data-ma-promos-show="all"` also lists offers outside their dates;
+  `data-ma-promos-limit="3"` limits the number; `data-ma-empty="…"` replaces the default text
+  when there is no offer (without it, the HTML inside the element stays).
+- The look follows the website: set `--ma-accent`, `--ma-accent-text`, `--ma-soft`, `--ma-border`,
+  `--ma-muted`, `--ma-surface`, `--ma-radius` and `--ma-display` (heading font) on `.ma-promos`
+  or any parent. The built-in CSS has zero specificity, so your own rules always win.
+
 ## Shipping the sections with the website
 
 Put a `mister-admin.json` file at the root of the website (a schema, optionally with starting

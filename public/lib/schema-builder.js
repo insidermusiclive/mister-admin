@@ -1,11 +1,12 @@
 // Visual editor for a site schema: sections and fields, no JSON needed.
 import { h, clear, modal, confirmDialog, toast } from './dom.js';
+import { promotionsSection } from './templates.js';
 
 export const FIELD_TYPE_LABELS = {
   text: 'Short text', textarea: 'Long text', markdown: 'Formatted text', number: 'Number', boolean: 'On / off switch',
   date: 'Date', link: 'Link', select: 'Choice list', color: 'Colour', image: 'Photo', gallery: 'Photo gallery',
 };
-const SECTION_TYPE_LABELS = { single: 'One block (e.g. About us)', list: 'A list of items (e.g. News, Events)', tree: 'A menu (nested links)' };
+const SECTION_TYPE_LABELS = { single: 'One block (e.g. About us)', list: 'A list of items (e.g. News, Events)', tree: 'A menu (nested links)', promotions: 'Ready-made: offers with old price, new price, dates and a booking button' };
 
 const slugify = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/^[^a-z]+/, '').slice(0, 40) || 'section';
 
@@ -65,15 +66,16 @@ export function schemaBuilder(schema, { onChange = () => {} } = {}) {
   }
 
   async function addSection() {
-    const label = h('input', { type: 'text', placeholder: 'e.g. Events, About us, Team' });
+    const label = h('input', { type: 'text', placeholder: 'e.g. Events, About us, Team (for Promotions: Promotions)' });
     let type = 'list';
     const choices = h('div', { class: 'choices' });
-    const drawChoices = () => { clear(choices); for (const [t, desc] of Object.entries(SECTION_TYPE_LABELS)) choices.append(h('button', { class: `choice${type === t ? ' selected' : ''}`, type: 'button', onClick: () => { type = t; drawChoices(); } }, h('strong', {}, t === 'single' ? 'Block' : t === 'list' ? 'List' : 'Menu'), h('span', {}, desc))); };
+    const drawChoices = () => { clear(choices); for (const [t, desc] of Object.entries(SECTION_TYPE_LABELS)) choices.append(h('button', { class: `choice${type === t ? ' selected' : ''}`, type: 'button', onClick: () => { type = t; drawChoices(); } }, h('strong', {}, t === 'single' ? 'Block' : t === 'list' ? 'List' : t === 'tree' ? 'Menu' : 'Promotions'), h('span', {}, desc))); };
     drawChoices();
     const r = await modal({ title: 'New section', body: h('div', {}, h('label', { class: 'field' }, h('span', { class: 'lbl' }, 'Name'), label), h('div', { class: 'field' }, h('span', { class: 'lbl' }, 'What kind of section?'), choices)),
       actions: [{ label: 'Cancel', value: null, class: 'btn-ghost' }, { label: 'Add', class: 'btn-primary', onClick: () => { if (!label.value.trim()) { toast('Give the section a name', 'error'); return false; } return { label: label.value.trim() }; } }] });
     if (!r) return;
     const name = uniqueName(slugify(r.label), new Set(Object.keys(schema.collections)));
+    if (type === 'promotions') { schema.collections[name] = { ...promotionsSection(), label: r.label, __open: true }; onChange(); render(); return; }
     const fields = type === 'tree' ? [{ name: 'label', type: 'text', label: 'Label', required: true }, { name: 'url', type: 'link', label: 'Link', required: true }]
       : type === 'list' ? [{ name: 'title', type: 'text', label: 'Title', required: true }] : [{ name: 'text', type: 'markdown', label: 'Text' }];
     schema.collections[name] = { label: r.label, type, fields, titleField: fields[0].name, __open: true };
